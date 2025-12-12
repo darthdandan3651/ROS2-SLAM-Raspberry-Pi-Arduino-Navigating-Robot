@@ -1,0 +1,63 @@
+import time
+import serial
+import subprocess
+
+# Serial setup to Arduino
+PORT = "/dev/ttyACM0"
+BAUD = 115200
+
+# 90% of 255 is ~230; just hardcode it so it's always full-enough power
+BASE_PWM = 230
+
+def send_cmd(ser, left, right):
+    # Send motor command to Arduino.
+    cmd = f"M {left} {right}\n"
+    print("Sending:", cmd.strip())
+    ser.write(cmd.encode("ascii"))
+
+def main():
+    # Connect to Arduino
+    ser = serial.Serial(PORT, BAUD, timeout=1)
+    time.sleep(2)  # let Arduino reset
+
+    try:
+        # Code to have vehicle move forward and occasionally turn
+        total_time = 12  # seconds to explore and map
+        start = time.time()
+
+        while time.time() - start < total_time:
+            elapsed = time.time() - start
+
+            # Drive forward most of the time, turn occasionally
+            if elapsed % 15 < 10:
+                # Forward
+                send_cmd(ser, BASE_PWM, BASE_PWM)
+            else:
+                # Turn in place for a few seconds
+                send_cmd(ser, -BASE_PWM, BASE_PWM)
+
+            time.sleep(0.2)
+
+        # Stop the robot
+        send_cmd(ser, 0, 0)
+        time.sleep(1)
+
+        # Save the map using nav2_map_server assuming slam_toolbox is publishing /map
+        print("Saving map to Desktop...")
+        subprocess.run([
+            "ros2", "run", "nav2_map_server", "map_saver_cli",
+            "-f", "/home/daniel/Desktop/room_map"
+        ], check=False)
+
+        print("Done. Map should be at ~/Desktop/room_map.pgm and .yaml")
+
+    finally:
+        # Make sure robot is stopped
+        try:
+            send_cmd(ser, 0, 0)
+        except Exception:
+            pass
+        ser.close()
+
+if name == "main":
+    main()
