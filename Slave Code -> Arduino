@@ -1,0 +1,117 @@
+// Code for L298N Motor Driver
+
+const int ENA = 5;   // PWM for left motor
+const int IN1 = 8;
+const int IN2 = 9;
+
+const int ENB = 6;   // PWM for right motor
+const int IN3 = 10;
+const int IN4 = 11;
+
+// Hardcoded 90% PWM limit
+const int MAX_PWM = 230;
+
+void setup() 
+{
+  Serial.begin(115200);
+
+  pinMode(ENA, OUTPUT);
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+
+  pinMode(ENB, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+
+  setMotorSpeeds(0, 0);
+}
+
+void loop() 
+{
+  if (Serial.available()) {
+    String cmd = Serial.readStringUntil('\n');
+    cmd.trim();
+
+    if (cmd.length() == 0) return;
+
+    // Movement commands for initial testing
+    if (cmd == "F") {                  // Forward
+      setMotorSpeeds(MAX_PWM, MAX_PWM);
+      return;
+    }
+
+    if (cmd == "B") {                  // Backward
+      setMotorSpeeds(-MAX_PWM, -MAX_PWM);
+      return;
+    }
+
+    if (cmd == "L") {                  // Turn left
+      setMotorSpeeds(-MAX_PWM, MAX_PWM);
+      return;
+    }
+
+    if (cmd == "R") {                  // Turn right
+      setMotorSpeeds(MAX_PWM, -MAX_PWM);
+      return;
+    }
+
+    if (cmd == "S") {                  // Stop
+      setMotorSpeeds(0, 0);
+      return;
+    }
+
+    // Numeric Command: M left right
+    if (cmd.charAt(0) == 'M') {
+      int firstSpace = cmd.indexOf(' ');
+      int secondSpace = cmd.indexOf(' ', firstSpace + 1);
+
+      if (firstSpace > 0 && secondSpace > firstSpace) {
+        int leftPwm = cmd.substring(firstSpace + 1, secondSpace).toInt();
+        int rightPwm = cmd.substring(secondSpace + 1).toInt();
+
+        leftPwm = constrain(leftPwm, -MAX_PWM, MAX_PWM);
+        rightPwm = constrain(rightPwm, -MAX_PWM, MAX_PWM);
+
+        setMotorSpeeds(leftPwm, rightPwm);
+      }
+    }
+  }
+}
+
+// Function for Motor Driver Functionality
+void setMotorSpeeds(int leftPwm, int rightPwm) 
+{
+  // Left Motor Control:
+  int leftSpeed = abs(leftPwm);
+
+  if (leftPwm > 0) {
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+    analogWrite(ENA, leftSpeed);
+  } else if (leftPwm < 0) {
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, HIGH);
+    analogWrite(ENA, leftSpeed);
+  } else {
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, LOW);
+    analogWrite(ENA, 0);
+  }
+
+  // Right Motor Control:
+  int rightSpeed = abs(rightPwm);
+
+  if (rightPwm > 0) {
+    digitalWrite(IN3, HIGH);
+    digitalWrite(IN4, LOW);
+    analogWrite(ENB, rightSpeed);
+  } else if (rightPwm < 0) {
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, HIGH);
+    analogWrite(ENB, rightSpeed);
+  } else {
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, LOW);
+    analogWrite(ENB, 0);
+  }
+}
