@@ -1,0 +1,58 @@
+#!/bin/bash
+
+# Ports for Raspberry Pi and Arduino 
+sudo chmod 666 /dev/ttyUSB0
+sudo chmod 666 /dev/ttyACM0
+
+# Terminal 1 – LiDAR
+x-terminal-emulator -T "LiDAR" -e bash -c "
+source /opt/ros/humble/setup.bash
+ros2 run sllidar_ros2 sllidar_node --ros-args -p serial_port:=/dev/ttyUSB0 -p serial_baudrate:=115200
+exec bash
+" &
+# This terminal turns the LiDAR on and sets the baudrate along with the designated port.
+
+sleep 1
+
+# Terminal 2 – TF base_link → laser_frame
+x-terminal-emulator -T "TF laser" -e bash -c "
+source /opt/ros/humble/setup.bash
+ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 base_link laser_frame
+exec bash
+" &
+# Where the LiDAR is mounted on the robot, getting LiDAR measurements 
+
+sleep 1
+
+# Terminal 3 – TF odom → base_link
+x-terminal-emulator -T "TF odom" -e bash -c "
+source /opt/ros/humble/setup.bash
+ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 odom base_link
+exec bash
+" &
+# The robot's positioning, data is fed from the master-slave connection with the Arduino
+
+#sleep 1
+
+# Terminal 4 – SLAM Toolbox
+x-terminal-emulator -T "SLAM" -e bash -c "
+source /opt/ros/humble/setup.bash
+ros2 launch slam_toolbox online_async_launch.py slam_params_file:=/home/daniel/Desktop/woject_pyfon/slam_params.yaml
+exec bash
+" &
+# Running SLAM and generating map 
+
+sleep 3
+
+# Terminal 5 – Autonomous Motion + Save Map
+x-terminal-emulator -T "Auto Mapping" -e bash -c "
+source /opt/ros/humble/setup.bash
+cd /home/daniel/Desktop/woject_pyfon
+python3 auto_map_run.py
+sleep 1
+echo 'Saving map...'
+ros2 run nav2_map_server map_saver_cli -f /home/daniel/Desktop/room_map
+echo 'Map saved to Desktop!'
+exec bash
+" &
+# Save map to desktop 
